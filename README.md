@@ -12,8 +12,6 @@ Tout se passe dans ton navigateur : rien n'est modifié sur Brio et aucune donn�
 
 ## Installation (2 minutes)
 
-Un guide détaillé pour Chrome et Edge est aussi disponible en PDF : [guide-installation-chrome-edge.pdf](guide-installation-chrome-edge.pdf).
-
 ### 1. Installer Tampermonkey
 
 Ajoute l'extension à ton navigateur :
