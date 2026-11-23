@@ -1,0 +1,56 @@
+# Script Brio pour Tampermonkey
+
+Un seul script, **« Brio : thèmes, échéances et notes »**, qui améliore l'affichage de [Brio](https://www.brioeducation.ca/) :
+
+- **Thèmes :** soir de match du Canadien, synthwave, saisons automatiques, météo en direct (bouton 🎨 en bas à gauche).
+- **Échéances et calendrier :** un panneau avec les remises des 30 prochains jours (et un bouton pour voir les 30 suivants), le calendrier de tous tes cours et des liens directs vers les évaluations.
+- **Notes :** ta note cumulée et ta cote à côté de chaque cours dans la liste « Sites de cours ».
+- **Note à viser :** sur la page Résultats d'un cours, le pourcentage à obtenir sur chaque évaluation restante pour monter d'une cote, en tenant compte du seuil de réussite des examens quand le cours en a un.
+
+Tout se passe dans ton navigateur : rien n'est modifié sur Brio et aucune donnée n'est envoyée ailleurs.
+
+## Installation (2 minutes)
+
+### 1. Installer Tampermonkey
+
+Ajoute l'extension à ton navigateur :
+
+- Chrome / Brave / Edge : [Chrome Web Store](https://chromewebstore.google.com/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo)
+- Firefox : [Firefox Add-ons](https://addons.mozilla.org/fr/firefox/addon/tampermonkey/)
+- Safari et autres : [tampermonkey.net](https://www.tampermonkey.net/)
+
+**Chrome, Edge, Brave :** il faut aussi autoriser les scripts utilisateur. Clic droit sur l'icône Tampermonkey → *Gérer l'extension*, puis active **« Autoriser les scripts utilisateur »** (ou le *Mode développeur* sur les anciennes versions de Chrome).
+
+### 2. Installer le script
+
+Clique sur ce lien, puis sur **Installer** dans la page de Tampermonkey qui s'ouvre :
+
+👉 [Installer « Brio : thèmes, échéances et notes »](https://raw.githubusercontent.com/Quentin-rib/Best_Brio/main/brio.user.js)
+
+Si tu avais déjà les anciens scripts « Brio : thèmes » et « Brio : échéances et calendrier », supprime-les dans le tableau de bord de Tampermonkey, sinon tout s'affichera en double.
+
+### Variante « Brio Festival »
+
+👉 [Installer « Brio Festival »](https://raw.githubusercontent.com/Quentin-rib/Best_Brio/main/brio-festival.user.js) : le même script, plus le thème du Festival de Sciences et Génie et un bouton « Festival » avec l'horaire des activités selon ton bac. Installe l'une **ou** l'autre version, pas les deux.
+
+### 3. C'est prêt
+
+Ouvre ou recharge [brioeducation.ca](https://www.brioeducation.ca/) et connecte-toi comme d'habitude.
+
+## Mises à jour
+
+Elles sont automatiques : Tampermonkey vérifie régulièrement s'il existe une nouvelle version. Pour forcer la vérification : icône Tampermonkey → *Utilitaires* → *Rechercher des mises à jour des scripts*.
+
+## Problèmes fréquents
+
+- **Rien ne change sur Brio :** vérifie que Tampermonkey est activé et que le script est coché dans son tableau de bord, puis recharge la page. Sur Chrome, vérifie l'option « Autoriser les scripts utilisateur ».
+- **Le panneau des échéances dit que la session est expirée :** déconnecte-toi puis reconnecte-toi à Brio.
+- **Tampermonkey demande une autorisation d'accès à un site :** clique sur *Toujours autoriser*. Les seuls sites contactés sont les serveurs de Brio, l'API publique de la LNH (thème Canadien) et Open-Meteo (thème Météo).
+
+Le panneau des échéances est réglé pour l'Université Laval.
+
+## Pour le mainteneur : publier une nouvelle version
+
+1. Modifie le script, puis augmente son numéro `@version` dans l'en-tête (par exemple `1.1.0` → `1.2.0`). Sans ce changement, Tampermonkey ne verra pas la mise à jour.
+2. Remplace le fichier dans ce dépôt (bouton *Add file → Upload files* sur GitHub, ou un commit).
+3. Tampermonkey l'installera automatiquement chez tout le monde lors de sa prochaine vérification (environ une fois par jour).
