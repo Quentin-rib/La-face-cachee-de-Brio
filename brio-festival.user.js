@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Brio Festival : thèmes, échéances, notes et Festival
 // @namespace    lecteur-brio
-// @version      1.4.0
+// @version      1.4.1
 // @description  Tout-en-un pour Brio : thèmes (Festival, Canadien, synthwave, saisons, météo), horaire du Festival de Sciences et Génie selon ton bac, panneau des échéances et du calendrier, note cumulée et cote de chaque cours, note à viser sur la page Résultats (avec le seuil des examens). Lecture seule, rien n'est modifié sur Brio.
 // @match        https://www.brioeducation.ca/*
 // @homepageURL  https://github.com/Quentin-rib/Best_Brio
@@ -1898,7 +1898,12 @@ const PARTAGE_FESTIVAL = { mesMatchs: null };
       .agenda:hover:not([disabled]) { border-color: var(--c-accent); }
       .agenda.choisi { border-color: var(--c-accent); box-shadow: 0 0 0 3px rgba(0,0,0,.08); }
       .agenda[disabled] { opacity: .5; cursor: default; }
-      .agenda-icone { font-size: 30px; line-height: 1; }
+      .agenda-logo { display: flex; align-items: center; justify-content: center; width: 64px; height: 64px; padding: 10px;
+        background: #fff; border-radius: 14px; box-shadow: 0 1px 3px rgba(0,0,0,.25); }
+      .agenda-logo svg { width: 100%; height: 100%; }
+      .agenda-logo.logo-samsung { width: 128px; padding: 10px 14px; }
+      .agenda-logo.petit { display: inline-flex; vertical-align: middle; width: 34px; height: 34px; padding: 5px; border-radius: 8px; margin-right: 6px; }
+      .agenda-logo.petit.logo-samsung { width: 84px; padding: 5px 8px; }
       .etapes { margin-top: 16px; padding: 18px 22px; }
       .etapes h2 { font-size: 20px; margin-bottom: 8px; }
       .etapes ol { margin: 0 0 12px 20px; padding: 0; line-height: 1.5; }
@@ -2081,6 +2086,14 @@ const PARTAGE_FESTIVAL = { mesMatchs: null };
       return evenements(cours).filter((e) => opts.passees || e.date >= maintenant);
     }
 
+    // Logos officiels des applications (SVG intégrés : Brio bloque les images externes)
+    const LOGOS_AGENDA = {
+      google: "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'><path fill='#fff' d='M195.368 60.632H60.632v134.736h134.736z'/><path fill='#ea4335' d='M195.368 256L256 195.368l-30.316-5.172l-30.316 5.172l-5.533 27.73z'/><path fill='#188038' d='M0 195.368v40.421C0 246.956 9.044 256 20.21 256h40.422l6.225-30.316l-6.225-30.316l-33.033-5.172z'/><path fill='#1967d2' d='M256 60.632V20.21C256 9.044 246.956 0 235.79 0h-40.422q-5.532 22.554-5.533 33.196q0 10.641 5.533 27.436q20.115 5.76 30.316 5.76T256 60.631'/><path fill='#fbbc04' d='M256 60.632h-60.632v134.736H256z'/><path fill='#34a853' d='M195.368 195.368H60.632V256h134.736z'/><path fill='#4285f4' d='M195.368 0H20.211C9.044 0 0 9.044 0 20.21v175.158h60.632V60.632h134.736z'/><path fill='#4285f4' d='M88.27 165.154c-5.036-3.402-8.523-8.37-10.426-14.94l11.689-4.816q1.59 6.063 5.558 9.398c2.627 2.223 5.827 3.318 9.566 3.318q5.734 0 9.852-3.487c2.746-2.324 4.127-5.288 4.127-8.875q0-5.508-4.345-8.994c-2.897-2.324-6.535-3.486-10.88-3.486h-6.754v-11.57h6.063q5.608 0 9.448-3.033c2.56-2.02 3.84-4.783 3.84-8.303c0-3.132-1.145-5.625-3.435-7.494c-2.29-1.87-5.188-2.813-8.708-2.813c-3.436 0-6.164.91-8.185 2.745a16.1 16.1 0 0 0-4.413 6.754l-11.57-4.817c1.532-4.345 4.345-8.185 8.471-11.503s9.398-4.985 15.798-4.985c4.733 0 8.994.91 12.767 2.745c3.772 1.836 6.736 4.379 8.875 7.613c2.14 3.25 3.2 6.888 3.2 10.93c0 4.126-.993 7.613-2.98 10.476s-4.43 5.052-7.327 6.585v.69a22.25 22.25 0 0 1 9.398 7.327c2.442 3.284 3.672 7.208 3.672 11.79c0 4.58-1.163 8.673-3.487 12.26c-2.324 3.588-5.54 6.417-9.617 8.472c-4.092 2.055-8.69 3.1-13.793 3.1c-5.912.016-11.369-1.685-16.405-5.087m71.797-58.005l-12.833 9.28l-6.417-9.734l23.023-16.607h8.825v78.333h-12.598z'/></svg>",
+      apple: "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 315'><path d='M213.803 167.03c.442 47.58 41.74 63.413 42.197 63.615c-.35 1.116-6.599 22.563-21.757 44.716c-13.104 19.153-26.705 38.235-48.13 38.63c-21.05.388-27.82-12.483-51.888-12.483c-24.061 0-31.582 12.088-51.51 12.871c-20.68.783-36.428-20.71-49.64-39.793c-27-39.033-47.633-110.3-19.928-158.406c13.763-23.89 38.36-39.017 65.056-39.405c20.307-.387 39.475 13.662 51.889 13.662c12.406 0 35.699-16.895 60.186-14.414c10.25.427 39.026 4.14 57.503 31.186c-1.49.923-34.335 20.044-33.978 59.822M174.24 50.199c10.98-13.29 18.369-31.79 16.353-50.199c-15.826.636-34.962 10.546-46.314 23.828c-10.173 11.763-19.082 30.589-16.678 48.633c17.64 1.365 35.66-8.964 46.64-22.262'/></svg>",
+      samsung: "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 10.166 24 3.668'><path fill='#1428A0' d='m19.817 10.28l.046 2.694h-.023l-.78-2.693h-1.283v3.392h.848l-.046-2.785h.023l.836 2.785h1.227v-3.392zm-16.15 0l-.641 3.428h.928l.47-3.118h.023l.459 3.118h.916l-.63-3.427zm5.181 0l-.424 2.614h-.023l-.424-2.613H6.58l-.069 3.427h.86l.023-3.083h.011l.573 3.083h.871l.573-3.083h.023l.023 3.083h.86l-.08-3.427zm-7.266 2.454a.5.5 0 0 1 .011.252c-.023.114-.103.229-.332.229c-.218 0-.344-.126-.344-.31v-.332H0v.264c0 .768.607.997 1.25.997c.618 0 1.134-.218 1.214-.78c.046-.298.012-.492 0-.561c-.16-.722-1.467-.929-1.559-1.33a.5.5 0 0 1 0-.183c.023-.115.104-.23.31-.23s.32.127.32.31v.206h.86v-.24c0-.745-.676-.86-1.157-.86c-.608 0-1.112.206-1.204.757a1.04 1.04 0 0 0 .012.458c.137.71 1.364.917 1.536 1.352m11.152 0c.034.08.022.184.011.253c-.023.114-.103.229-.332.229c-.218 0-.344-.126-.344-.31v-.332h-.917v.264c0 .756.596.985 1.238.985c.619 0 1.123-.206 1.203-.779c.046-.298.012-.481 0-.562c-.137-.71-1.433-.928-1.524-1.318a.5.5 0 0 1 0-.183c.023-.115.103-.23.31-.23c.194 0 .32.127.32.31v.206h.848v-.24c0-.745-.665-.86-1.146-.86c-.607 0-1.1.195-1.192.757c-.023.149-.023.286.012.458c.137.71 1.34.905 1.513 1.352m2.888.459c.24 0 .31-.16.332-.252c.012-.035.012-.092.012-.126V10.28h.87v2.464c0 .069 0 .195-.01.23c-.058.641-.562.847-1.193.847c-.63 0-1.134-.206-1.192-.848c0-.034-.011-.16-.011-.229V10.28h.87v2.533c0 .046 0 .091.012.126c0 .091.07.252.31.252m7.152-.034c.252 0 .332-.16.355-.253c.011-.034.011-.091.011-.126v-.493h-.355v-.504H24v.917c0 .069 0 .115-.011.23c-.058.63-.597.847-1.204.847s-1.146-.217-1.203-.848c-.012-.114-.012-.16-.012-.229v-1.444c0-.057.012-.172.012-.23c.08-.641.596-.847 1.203-.847s1.135.206 1.203.848c.012.103.012.229.012.229v.115h-.86v-.195s0-.08-.011-.126c-.012-.08-.08-.252-.344-.252c-.252 0-.32.16-.344.252c-.011.045-.011.103-.011.16v1.57c0 .046 0 .092.011.126c0 .092.092.253.333.253'/></svg>",
+      outlook: "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='#0078D4' d='M7.88 12.04q0 .45-.11.87q-.1.41-.33.74q-.22.33-.58.52q-.37.2-.87.2t-.85-.2q-.35-.21-.57-.55q-.22-.33-.33-.75q-.1-.42-.1-.86t.1-.87t.34-.76q.22-.34.59-.54q.36-.2.87-.2t.86.2q.35.21.57.55t.31.77q.1.43.1.88M24 12v9.38q0 .46-.33.8q-.33.32-.8.32H7.13q-.46 0-.8-.33q-.32-.33-.32-.8V18H1q-.41 0-.7-.3q-.3-.29-.3-.7V7q0-.41.3-.7Q.58 6 1 6h6.5V2.55q0-.44.3-.75q.3-.3.75-.3h12.9q.44 0 .75.3q.3.3.3.75v8.3l1.24.72h.01q.1.07.18.18q.07.12.07.25m-6-8.25v3h3v-3zm0 4.5v3h3v-3zm0 4.5v1.83l3.05-1.83zm-5.25-9v3h3.75v-3zm0 4.5v3h3.75v-3zm0 4.5v2.03l2.41 1.5l1.34-.8v-2.73zM9 3.75V6h2l.13.01l.12.04v-2.3zM5.98 15.98q.9 0 1.6-.3q.7-.32 1.19-.86q.48-.55.73-1.28q.25-.74.25-1.61q0-.83-.25-1.55q-.24-.71-.71-1.24t-1.15-.83t-1.55-.3q-.92 0-1.64.3q-.71.3-1.2.85q-.5.54-.75 1.3q-.25.74-.25 1.63q0 .85.26 1.56q.26.72.74 1.23q.48.52 1.17.81q.69.3 1.56.3zM7.5 21h12.39L12 16.08V17q0 .41-.3.7q-.29.3-.7.3H7.5zm15-.13v-7.24l-5.9 3.54Z'/></svg>",
+    };
+
     const AGENDAS = {
       google: { nom: "Google Agenda", icone: "🟦", etapes: [
         "Le fichier <b>brio-echeances.ics</b> vient d'être téléchargé.",
@@ -2119,13 +2132,13 @@ const PARTAGE_FESTIVAL = { mesMatchs: null };
         </div>`;
       const boutons = Object.entries(AGENDAS).map(([cle, a]) => `
         <button class="agenda${cle === choisi ? " choisi" : ""}" data-agenda="${cle}"${evs.length ? "" : " disabled"}>
-          <span class="agenda-icone">${a.icone}</span><span>${a.nom}</span></button>`).join("");
+          <span class="agenda-logo logo-${cle}">${LOGOS_AGENDA[cle]}</span><span>${a.nom}</span></button>`).join("");
       let etapes = "";
       if (choisi && AGENDAS[choisi]) {
         const a = AGENDAS[choisi];
         const liens = [a.lien, a.lien2].filter(Boolean)
           .map((l) => `<a class="bouton2" href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.texte)} ↗</a>`).join(" ");
-        etapes = `<div class="carte etapes"><h2 class="titre-brio">${a.icone} ${a.nom}</h2>
+        etapes = `<div class="carte etapes"><h2 class="titre-brio"><span class="agenda-logo petit logo-${choisi}">${LOGOS_AGENDA[choisi]}</span> ${a.nom}</h2>
           <ol>${a.etapes.map((t) => `<li>${t}</li>`).join("")}</ol>
           ${liens ? `<div class="liens">${liens}</div>` : ""}
           <button class="outil" data-agenda="${choisi}">Retélécharger le fichier</button></div>`;
