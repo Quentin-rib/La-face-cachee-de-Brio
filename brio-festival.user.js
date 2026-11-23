@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         New_Brio
 // @namespace    lecteur-brio
-// @version      1.4.4
+// @version      1.4.5
 // @description  Tout-en-un pour Brio : thèmes (Festival, Canadien, synthwave, saisons, météo), horaire du Festival de Sciences et Génie selon ton bac, panneau des échéances et du calendrier, note cumulée et cote de chaque cours, note à viser sur la page Résultats (avec le seuil des examens). Lecture seule, rien n'est modifié sur Brio.
 // @match        https://www.brioeducation.ca/*
 // @homepageURL  https://github.com/Quentin-rib/Best_Brio
@@ -193,6 +193,9 @@ const PARTAGE_FESTIVAL = { mesMatchs: null };
     saisons: { nom: 'Saisons automatiques', icone: '🍂', dynamique: true },
     meteo: { nom: 'Météo en direct', icone: '⛅', dynamique: true },
   };
+
+  // Ordre dans le menu des thèmes : Festival en premier, Brio d'origine à la fin
+  const ORDRE_MENU = ['festival', ...Object.keys(THEMES).filter((k) => k !== 'festival' && k !== 'origine'), 'origine'];
 
   // ================================================================
   // 1 b. LES SAISONS (choisies selon la date du jour)
@@ -680,7 +683,7 @@ const PARTAGE_FESTIVAL = { mesMatchs: null };
       <button class="btn" title="Changer le thème de Brio" aria-label="Changer le thème de Brio">🎨</button>
       <div class="menu" hidden role="menu">
         <div class="titre">Thème de Brio</div>
-        ${Object.entries(THEMES).map(([cle, t]) => `
+        ${ORDRE_MENU.map((cle) => [cle, THEMES[cle]]).map(([cle, t]) => `
           <button class="choix" data-theme="${cle}" role="menuitem">
             <span>${t.icone}</span><span>${t.nom}<span class="sous"></span></span>
             <span class="pastilles"></span>
@@ -1470,7 +1473,8 @@ const PARTAGE_FESTIVAL = { mesMatchs: null };
     const info = PARTAGE_FESTIVAL.mesMatchs ? PARTAGE_FESTIVAL.mesMatchs() : { bac: null, matchs: [] };
     let liste = '';
     if (!info.bac) {
-      liste = txt(440, H * 0.5 + 10 * s, 'Clique sur « Festival » en bas à droite pour choisir ton bac.', { t: 20 * s, c: '#ece9f2', op: 0.85 });
+      liste = txt(440, H * 0.5 + 10 * s, 'Clique sur « Festival » en bas à droite', { t: 20 * s, c: '#ece9f2', op: 0.85 })
+        + txt(440, H * 0.5 + 38 * s, 'pour choisir ton bac.', { t: 20 * s, c: '#ece9f2', op: 0.85 });
     } else {
       liste = txt(440, H * 0.5 - 8 * s, `TES MATCHS · ${info.bac}`, { t: 18 * s, g: 800, ls: 2, c: '#b98aef' });
       info.matchs.slice(0, 3).forEach((x, i) => {
