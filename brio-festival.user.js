@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Brio Festival : thèmes, échéances, notes et Festival
 // @namespace    lecteur-brio
-// @version      1.4.2
+// @version      1.4.3
 // @description  Tout-en-un pour Brio : thèmes (Festival, Canadien, synthwave, saisons, météo), horaire du Festival de Sciences et Génie selon ton bac, panneau des échéances et du calendrier, note cumulée et cote de chaque cours, note à viser sur la page Résultats (avec le seuil des examens). Lecture seule, rien n'est modifié sur Brio.
 // @match        https://www.brioeducation.ca/*
 // @homepageURL  https://github.com/Quentin-rib/Best_Brio
@@ -169,6 +169,7 @@ const PARTAGE_FESTIVAL = { mesMatchs: null };
       fonce: '#07060c', primaire: '#5b2a91', accent: '#b98aef',
       texte: '#ece9f2', titre: '#f2c14e', discret: '#a8a1b8', surFonce: '#ffffff',
       bgElement: 'transparent', // les zones de fond laissent voir la nuit et la lune
+      titre2: '#ffffff',        // seuls les vrais titres restent en jaune ; le reste en blanc
       bgPanneau: '#0e0c17',     // fond opaque des panneaux Échéances et Festival, pour bien lire
       policeTitre: '"Trebuchet MS", "Segoe UI", Arial, sans-serif',
       deco: `
@@ -179,6 +180,8 @@ const PARTAGE_FESTIVAL = { mesMatchs: null };
         [data-lbt-bg="surface"] { border: 1px solid #3e3456 !important; box-shadow: 0 6px 18px rgba(0,0,0,.55) !important; }
         [data-lbt-bg="primaire"], [data-lbt-bg="fonce"] { box-shadow: inset 0 -3px 0 #f2c14e !important; }
         h1::after { content: " 🔔"; font-size: .55em; vertical-align: middle; }
+        /* Jaune réservé aux titres : les autres textes « couleur titre » de Brio passent en blanc */
+        [data-lbt-fg="titre"]:not(h1, h2, h3, h4, [class*="titre"], [class*="title"]) { color: #ffffff !important; }
         a:hover { text-decoration-color: #f2c14e !important; }
         ::selection { background: #7b3fb5 !important; color: #ffffff !important; }
         ::-webkit-scrollbar { width: 12px; height: 12px; }
@@ -591,6 +594,7 @@ const PARTAGE_FESTIVAL = { mesMatchs: null };
     const policeTitre = t.policeTitre ? `h1, h2, h3, h4 { font-family: ${t.policeTitre} !important; }` : '';
     return `
       html { ${vars} --lbt-bgElement: ${t.bgElement || t.bg};
+        --lbt-titre2: ${t.titre2 || t.titre};
         --lbt-bgPanneau: ${t.bgPanneau || (t.bgElement && t.bgElement !== 'transparent' ? t.bgElement : t.bg)};
         ${t.police ? `--lbt-police: ${t.police};` : ''} ${t.policeTitre ? `--lbt-policeTitre: ${t.policeTitre};` : ''}
         background: var(--lbt-bg) !important;
@@ -1812,6 +1816,7 @@ const PARTAGE_FESTIVAL = { mesMatchs: null };
         --c-accent: var(--lbt-accent, #0e67d6);
         --c-texte: var(--lbt-texte, #000);
         --c-titre: var(--lbt-titre, #0f263e);
+        --c-titre2: var(--lbt-titre2, var(--c-titre)); /* petits titres et étiquettes */
         --c-discret: var(--lbt-discret, #4e667e);
         --c-sur-fonce: var(--lbt-surFonce, #fff);
         --c-bouton: var(--lbt-primaire, #0e67d6);
@@ -1875,8 +1880,9 @@ const PARTAGE_FESTIVAL = { mesMatchs: null };
       .remise .meta { margin-top: 4px; color: var(--c-discret); font-size: 15px; }
       .remise .droite { padding: 14px 18px; display: flex; flex-direction: column; align-items: flex-end; gap: 6px;
         justify-content: center; text-align: right; flex: none; }
-      .heure { font-weight: 550; color: var(--c-titre); }
-      .etiquette { display: inline-block; background: var(--c-fond2); color: var(--c-titre); border-radius: 3px; padding: 2px 8px;
+      .heure { font-weight: 550; color: var(--c-titre2); }
+      .remise h3.titre-brio { color: var(--c-titre2); }
+      .etiquette { display: inline-block; background: var(--c-fond2); color: var(--c-titre2); border-radius: 3px; padding: 2px 8px;
         font-size: 13px; font-weight: 700; }
       .urgent { color: #e30513; font-weight: 700; }
       .proche { color: #c06a00; font-weight: 700; }
@@ -1918,7 +1924,7 @@ const PARTAGE_FESTIVAL = { mesMatchs: null };
       .legende i, .point { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex: none; }
       .mois { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 1px; background: var(--c-fond2);
         box-shadow: 0 1px 2px rgba(0,0,0,.25); }
-      .mois .nom-jour { background: var(--c-fond2); color: var(--c-titre); font-weight: 700; font-size: 14px; padding: 6px 8px; }
+      .mois .nom-jour { background: var(--c-fond2); color: var(--c-titre2); font-weight: 700; font-size: 14px; padding: 6px 8px; }
       .case { background: var(--c-surface); min-height: 104px; padding: 6px; border: 0; text-align: left; cursor: pointer;
         font: inherit; color: inherit; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
       .case:hover { background: color-mix(in srgb, var(--c-fond) 60%, var(--c-surface)); }
@@ -1928,7 +1934,7 @@ const PARTAGE_FESTIVAL = { mesMatchs: null };
         justify-content: center; border-radius: 50%; }
       .case.auj .num-jour { background: var(--c-bouton); color: var(--c-sur-fonce); }
       .puce-ev { display: block; font-size: 13px; line-height: 1.25; padding: 2px 5px; border-left: 3px solid var(--c);
-        background: var(--c-fond); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--c-titre); }
+        background: var(--c-fond); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--c-titre2); }
       .puce-ev b { font-weight: 700; }
       .puce-ev.passee { opacity: .55; }
       .points { display: none; gap: 3px; flex-wrap: wrap; }
@@ -2214,7 +2220,7 @@ const PARTAGE_FESTIVAL = { mesMatchs: null };
   
     const STYLE_NOTE = "display:flex;align-items:center;gap:14px;margin-left:20px;padding:7px 15px;"
       + "border-radius:9px;text-decoration:none;line-height:1.25;white-space:nowrap;"
-      + "background:var(--lbt-surface2,#eef2f6);color:var(--lbt-titre,#0f263e);";
+      + "background:var(--lbt-surface2,#eef2f6);color:var(--lbt-titre2,var(--lbt-titre,#0f263e));";
     const TITRE_NOTE = `<span style="display:block;font-size:17px;opacity:.75">Note cumulée</span>`;
   
     function remplirNote(lien, r, bareme) {
@@ -2347,7 +2353,7 @@ const PARTAGE_FESTIVAL = { mesMatchs: null };
     }
   
     const STYLE_CIBLE = "display:inline-block;padding:3px 10px;border-radius:8px;font-size:16px;line-height:1.4;"
-      + "background:var(--lbt-surface2,#eef2f6);color:var(--lbt-titre,#0f263e);";
+      + "background:var(--lbt-surface2,#eef2f6);color:var(--lbt-titre2,var(--lbt-titre,#0f263e));";
     // Affichage étroit (liste) : pastille centrée entre « Note obtenue » et « Note pondérée »
     const STYLE_CIBLE_LISTE = "grid-column:3;grid-row:1 / span 2;align-self:center;justify-self:start;margin-left:16px;";
     const pourcent = (x) => `${fmtNombre(Math.ceil(x * 10) / 10, 1)} %`;
@@ -2678,7 +2684,7 @@ const PARTAGE_FESTIVAL = { mesMatchs: null };
     .racine {
       --c-surface: var(--lbt-surface, #fff); --c-fond: var(--lbt-bgPanneau, var(--lbt-bgElement, #eef2f6)); --c-fond2: var(--lbt-surface2, #dde3e9);
       --c-bordure: var(--lbt-bordure, #c9d2dc); --c-fonce: var(--lbt-fonce, #0f263e); --c-primaire: var(--lbt-primaire, #0755b1);
-      --c-accent: var(--lbt-accent, #0e67d6); --c-texte: var(--lbt-texte, #000); --c-titre: var(--lbt-titre, #0f263e);
+      --c-accent: var(--lbt-accent, #0e67d6); --c-texte: var(--lbt-texte, #000); --c-titre: var(--lbt-titre, #0f263e); --c-titre2: var(--lbt-titre2, var(--c-titre));
       --c-discret: var(--lbt-discret, #4e667e); --c-sur-fonce: var(--lbt-surFonce, #fff);
       --f-texte: var(--lbt-police, "Source Sans 3", arial, sans-serif);
       --f-titre: var(--lbt-policeTitre, Overpass, "Source Sans 3", arial, sans-serif);
@@ -2707,7 +2713,7 @@ const PARTAGE_FESTIVAL = { mesMatchs: null };
     .choix-bac button { padding: 12px 8px; font-size: 16px; font-weight: 700; }
     .ligne { display: grid; grid-template-columns: 70px 34px 1fr auto; align-items: center; gap: 10px; background: var(--c-surface);
       border-left: 4px solid transparent; padding: 10px 14px; margin-bottom: 4px; border-radius: 3px; }
-    .ligne .heure { font-weight: 700; color: var(--c-titre); }
+    .ligne .heure { font-weight: 700; color: var(--c-titre2); }
     .ligne .icone { font-size: 20px; text-align: center; }
     .ligne .activite { font-size: 13px; color: var(--c-discret); }
     .ligne .match { font-size: 16px; }
