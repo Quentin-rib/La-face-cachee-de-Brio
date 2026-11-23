@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Brio Festival : thèmes, échéances, notes et Festival
 // @namespace    lecteur-brio
-// @version      1.2.0
+// @version      1.3.0
 // @description  Tout-en-un pour Brio : thèmes (Festival, Canadien, synthwave, saisons, météo), horaire du Festival de Sciences et Génie selon ton bac, panneau des échéances et du calendrier, note cumulée et cote de chaque cours, note à viser sur la page Résultats (avec le seuil des examens). Lecture seule, rien n'est modifié sur Brio.
 // @match        https://www.brioeducation.ca/*
 // @homepageURL  https://github.com/Quentin-rib/Best_Brio
@@ -29,6 +29,9 @@
  * et l'horaire du Festival de Sciences et Génie. N'active pas les deux en même temps dans Tampermonkey,
  * sinon tout s'affiche en double.
  */
+
+// Pont entre les parties : l'horaire du Festival (partie 3) le remplit, la bannière (partie 1) le lit
+const PARTAGE_FESTIVAL = { mesMatchs: null };
 
 // =====================================================================
 // PARTIE 1 : THÈMES
@@ -559,6 +562,7 @@
       aTraiter.clear();
       assurerModule(); // le tableau (match du CH ou météo) suit les changements de page dans Brio
       if (choix === 'origine') return;
+      assurerBanniere(); // la bannière du thème aussi
       liste.forEach((n) => (n.isConnected ? etiqueterArbre(n) : null));
     });
   }
@@ -624,7 +628,8 @@
     }
     majMenu();
     assurerModule();
-    if (choix === 'meteo') donneesMeteo().then(() => { if (choix === 'meteo') { rafraichirTheme(); majMenu(); } });
+    assurerBanniere(true);
+    if (choix === 'meteo') donneesMeteo().then(() => { if (choix === 'meteo') { rafraichirTheme(); majMenu(); assurerBanniere(true); } });
   }
 
   /** Réapplique les couleurs si le thème vivant a changé (nouvelle saison, nouvelle météo) */
@@ -832,6 +837,11 @@
     const match = enDirect || finis[finis.length - 1];
     if (!match) return null;
     const prochain = matchs.find((g) => ['FUT', 'PRE'].includes(g.gameState) && g.id !== match.id);
+    const aVenir = matchs.filter((g) => ['FUT', 'PRE'].includes(g.gameState) && g.id !== match.id).slice(0, 3);
+    // Logos des prochains adversaires (pour la bannière), un seul téléchargement par équipe
+    const adversaire = (g) => (g.homeTeam.abbrev === EQUIPE ? g.awayTeam : g.homeTeam);
+    const logosAVenir = await Promise.all(aVenir.map((g, i) => telecharger(adversaire(g).darkLogo || adversaire(g).logo, true)
+      .then((svg) => nettoyerSvg(svg, `p${i}`)).catch(() => '')));
 
     const [fiche, rail, classement, logoVisiteur, logoLocal] = await Promise.all([
       telecharger(`${NHL}/gamecenter/${match.id}/landing`),
@@ -874,6 +884,8 @@
       etoiles,
       fiche_ch: nous ? { v: nous.wins, d: nous.losses, dp: nous.otLosses, pts: nous.points,
         rangDiv: nous.divisionSequence, div: nous.divisionName, serie: `${nous.streakCode || ''}${nous.streakCount || ''}` } : null,
+      prochains: aVenir.map((g, i) => ({ debut: g.startTimeUTC, local: g.homeTeam.abbrev === EQUIPE,
+        adversaire: adversaire(g).abbrev, logo: logosAVenir[i] })),
       prochain: prochain ? { debut: prochain.startTimeUTC, local: prochain.homeTeam.abbrev === EQUIPE,
         adversaire: prochain.homeTeam.abbrev === EQUIPE ? prochain.awayTeam.abbrev : prochain.homeTeam.abbrev } : null,
     };
@@ -884,6 +896,7 @@
     let cache = null;
     try { cache = typeof GM_getValue === 'function' ? GM_getValue(CLE_MATCH, null) : null; } catch (e) { /* rien */ }
     const limite = (cache && cache.enDirect ? FRAIS_MIN_DIRECT : FRAIS_MIN) * 60000;
+    if (cache && !cache.prochains) cache.quand = 0; // ancien format (avant la bannière) : on recharge
     if (cache && Date.now() - cache.quand < limite) return cache;
     if (!enChargement) {
       enChargement = chargerMatch()
@@ -1206,15 +1219,377 @@
 
   // Thèmes vivants : on revérifie la saison et la météo toutes les 20 minutes
   setInterval(() => {
-    if (choix === 'saisons') { rafraichirTheme(); majMenu(); }
-    if (choix === 'meteo') donneesMeteo().then(() => { rafraichirTheme(); majMenu(); if (hoteModule) afficherModule(false); });
+    if (choix === 'saisons') { rafraichirTheme(); majMenu(); assurerBanniere(true); }
+    if (choix === 'meteo') donneesMeteo().then(() => { rafraichirTheme(); majMenu(); assurerBanniere(true); if (hoteModule) afficherModule(false); });
+    if (choix === 'ch') donneesMatch().then((d) => { if (d) { matchBanniere = d; assurerBanniere(true); } });
   }, FRAIS_METEO_MIN * 60000);
+
+  // ================================================================
+  // 11. BANNIÈRE SELON LE THÈME
+  //     La grande photo en haut des pages de Brio est remplacée par une image dessinée
+  //     selon le thème : match du CH, météo, saison, synthwave ou Festival.
+  //     L'image est un SVG en data: (Brio bloque les images externes) ; rien n'est envoyé.
+  //     « Brio d'origine » remet la photo de Brio.
+  // ================================================================
+  const NS_SVG = 'http://www.w3.org/2000/svg';
+  const LARGEUR_B = 1600;
+  const POLICE_B = '"Segoe UI", "Source Sans 3", Arial, sans-serif';
+  const IGNORER_B = '#lbt-menu, #lbt-bouton, #lbt-match, #lbt-meteo, #lbt-ambiance, #lecteur-brio-bilan';
+
+  /** Petit générateur pseudo-aléatoire stable (mêmes étoiles et flocons à chaque affichage) */
+  function aleaStable(graine) {
+    let x = graine || 1;
+    return () => { x = (x * 16807) % 2147483647; return (x - 1) / 2147483646; };
+  }
+
+  /** Un texte SVG ; o = { t: taille, g: graisse, c: couleur, a: ancrage, op: opacité, ls: espacement, it: italique, f: filtre } */
+  function txt(x, y, contenu, o = {}) {
+    return `<text x="${x}" y="${y}" font-family='${o.police || POLICE_B}' font-size="${o.t || 20}" font-weight="${o.g || 400}"`
+      + ` fill="${o.c || '#fff'}" text-anchor="${o.a || 'start'}"${o.op != null ? ` opacity="${o.op}"` : ''}`
+      + `${o.ls ? ` letter-spacing="${o.ls}"` : ''}${o.it ? ' font-style="italic"' : ''}${o.f ? ` filter="url(#${o.f})"` : ''}`
+      + `>${escM(contenu)}</text>`;
+  }
+
+  /** Place un logo SVG nettoyé (voir nettoyerSvg) dans un carré, ou l'abréviation si pas de logo */
+  function logoB(svg, x, y, taille, abbr) {
+    if (svg) return svg.replace(/^<svg/, `<svg x="${x}" y="${y}" width="${taille}" height="${taille}" preserveAspectRatio="xMidYMid meet"`);
+    return txt(x + taille / 2, y + taille * 0.62, abbr || '', { t: taille * 0.36, g: 800, a: 'middle' });
+  }
+
+  const dateLongue = () => new Date().toLocaleDateString('fr-CA', { weekday: 'long', day: 'numeric', month: 'long' });
+
+  // ---------- Canadien : dernier match et prochains matchs ----------
+  function banniereCH(H, m) {
+    const s = Math.max(0.72, Math.min(1.35, H / 330));
+    const cy = H / 2;
+    let fond = `
+      <defs><linearGradient id="gch" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#0b1238"/><stop offset=".55" stop-color="#192168"/><stop offset="1" stop-color="#0b1238"/></linearGradient></defs>
+      <rect width="${LARGEUR_B}" height="${H}" fill="url(#gch)"/>
+      <rect x="340" width="14" height="${H}" fill="#3d5bd9" opacity=".22"/>
+      <rect x="1000" width="10" height="${H}" fill="#af1e2d" opacity=".35"/>
+      <circle cx="1005" cy="${cy}" r="${H * 0.36}" fill="none" stroke="#3d5bd9" stroke-width="4" opacity=".18"/>
+      <rect y="${H - 26}" width="${LARGEUR_B}" height="10" fill="#af1e2d"/>
+      <rect y="${H - 16}" width="${LARGEUR_B}" height="6" fill="#fff"/>
+      <rect y="${H - 10}" width="${LARGEUR_B}" height="10" fill="#af1e2d"/>
+      ${txt(60, 70 * s, 'SOIR DE MATCH', { t: 22 * s, g: 900, ls: 4, op: 0.55 })}
+      ${txt(60, 104 * s, 'Centre Bell', { t: 18 * s, g: 600, op: 0.45 })}`;
+    if (!m) return fond + txt(800, cy + 10, 'Chargement du match du Canadien…', { t: 30 * s, g: 700, a: 'middle', op: 0.85 });
+
+    const ch = m.local.abbr === EQUIPE ? m.local : m.visiteur;
+    const eux = ch === m.local ? m.visiteur : m.local;
+    let resultat;
+    let couleur;
+    if (m.enDirect) { resultat = `EN DIRECT · ${nomPeriode(m.periode)}${m.horloge ? ' · ' + m.horloge : ''}`; couleur = '#ffd24a'; } else {
+      const gagne = ch.buts > eux.buts;
+      resultat = `${gagne ? 'VICTOIRE' : 'DÉFAITE'}${m.finPeriode === 'OT' ? ' EN PROLONGATION' : m.finPeriode === 'SO' ? ' EN TIRS DE BARRAGE' : ''}`;
+      couleur = gagne ? '#5fe08a' : '#ff8a8a';
+    }
+    // Bloc gauche : dernier match
+    const xc = 660;
+    const tl = 112 * s;
+    let bloc = `
+      ${txt(xc, cy - 82 * s, `${m.enDirect ? 'MATCH EN COURS' : 'DERNIER MATCH'} · ${jourCourt(m.debut)}`, { t: 20 * s, g: 800, a: 'middle', ls: 2, op: 0.85 })}
+      ${logoB(m.visiteur.logo, xc - 175 * s - tl / 2, cy - 52 * s, tl, m.visiteur.abbr)}
+      ${logoB(m.local.logo, xc + 175 * s - tl / 2, cy - 52 * s, tl, m.local.abbr)}
+      ${txt(xc, cy + 30 * s, `${m.visiteur.buts} – ${m.local.buts}`, { t: 92 * s, g: 900, a: 'middle' })}
+      ${txt(xc - 175 * s, cy + 82 * s, m.visiteur.abbr, { t: 18 * s, g: 800, a: 'middle', op: 0.8 })}
+      ${txt(xc + 175 * s, cy + 82 * s, m.local.abbr, { t: 18 * s, g: 800, a: 'middle', op: 0.8 })}
+      ${txt(xc, cy + 84 * s, resultat, { t: 22 * s, g: 900, a: 'middle', c: couleur, ls: 2 })}`;
+    // Bloc droit : prochains matchs
+    const xd = 1110;
+    const prochains = m.prochains || (m.prochain ? [m.prochain] : []);
+    const pas = 50 * s;
+    const y0 = cy - 82 * s;
+    bloc += txt(xd, y0, 'PROCHAINS MATCHS', { t: 20 * s, g: 800, ls: 2, op: 0.85 });
+    prochains.slice(0, 3).forEach((p, i) => {
+      const y = y0 + 22 * s + i * pas;
+      bloc += `
+        <rect x="${xd - 14}" y="${y}" width="${440}" height="${pas - 8 * s}" rx="6" fill="#fff" opacity=".08"/>
+        ${txt(xd, y + pas * 0.56, `${jourCourt(p.debut)} · ${heureCourte(p.debut)}`, { t: 19 * s, g: 700 })}
+        ${txt(xd + 255, y + pas * 0.56, p.local ? 'vs' : '@', { t: 18 * s, g: 700, a: 'middle', op: 0.7 })}
+        ${logoB(p.logo, xd + 280, y + 2 * s, pas - 12 * s, '')}
+        ${txt(xd + 285 + pas, y + pas * 0.56, p.adversaire, { t: 20 * s, g: 900 })}`;
+    });
+    if (!prochains.length) bloc += txt(xd, y0 + 50 * s, 'Aucun match prévu', { t: 19 * s, op: 0.7 });
+    const f = m.fiche_ch;
+    if (f) {
+      bloc += txt(xd, y0 + 22 * s + 3 * pas + 22 * s,
+        `Fiche ${f.v}-${f.d}-${f.dp} · ${f.pts} pts · ${ordinal(f.rangDiv)} ${f.div === 'Atlantic' ? 'Atlantique' : f.div}`, { t: 17 * s, g: 600, op: 0.75 });
+    }
+    return fond + bloc;
+  }
+
+  // ---------- Synthwave : coucher de soleil rayé et grille néon ----------
+  function banniereSynthwave(H) {
+    const s = Math.max(0.72, Math.min(1.35, H / 330));
+    const hor = H * 0.66;
+    const sx = 1180;
+    const r = H * 0.42;
+    let grille = '';
+    for (let i = 1; i <= 7; i++) {
+      const y = hor + (H - hor) * Math.pow(i / 7, 1.8);
+      grille += `<line x1="0" y1="${y}" x2="${LARGEUR_B}" y2="${y}"/>`;
+    }
+    for (let i = -14; i <= 14; i++) grille += `<line x1="${sx + i * 40}" y1="${hor}" x2="${sx + i * 260}" y2="${H}"/>`;
+    let raies = '';
+    for (let i = 0; i < 5; i++) {
+      const y = hor - r * 0.55 + i * r * 0.14;
+      raies += `<rect x="${sx - r}" y="${y}" width="${2 * r}" height="${3 + i * 2.2}" fill="#2a0b4f"/>`;
+    }
+    const rnd = aleaStable(1986);
+    let etoiles = '';
+    for (let i = 0; i < 70; i++) etoiles += `<circle cx="${rnd() * LARGEUR_B}" cy="${rnd() * hor * 0.8}" r="${rnd() * 1.6 + 0.4}" fill="#fff" opacity="${rnd() * 0.6 + 0.2}"/>`;
+    return `
+      <defs>
+        <linearGradient id="gciel" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0c0320"/><stop offset=".6" stop-color="#3a0d63"/><stop offset="1" stop-color="#a0207a"/></linearGradient>
+        <linearGradient id="gsol" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe66b"/><stop offset=".5" stop-color="#ff8a3d"/><stop offset="1" stop-color="#ff3fa4"/></linearGradient>
+        <clipPath id="chor"><rect width="${LARGEUR_B}" height="${hor}"/></clipPath>
+        <filter id="neon" x="-20%" y="-50%" width="140%" height="200%"><feGaussianBlur stdDeviation="5" result="b"/>
+          <feMerge><feMergeNode in="b"/><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+      </defs>
+      <rect width="${LARGEUR_B}" height="${hor}" fill="url(#gciel)"/>
+      ${etoiles}
+      <g clip-path="url(#chor)"><circle cx="${sx}" cy="${hor - r * 0.15}" r="${r}" fill="url(#gsol)"/>${raies}</g>
+      <polygon points="0,${hor} 160,${hor - H * 0.16} 290,${hor - H * 0.06} 430,${hor - H * 0.22} 620,${hor} " fill="#1b0636"/>
+      <polygon points="1450,${hor} 1520,${hor - H * 0.12} 1600,${hor - H * 0.05} 1600,${hor}" fill="#1b0636"/>
+      <rect y="${hor}" width="${LARGEUR_B}" height="${H - hor}" fill="#12041f"/>
+      <g stroke="#ff5fdc" stroke-width="2" opacity=".75">${grille}</g>
+      <line x1="0" y1="${hor}" x2="${LARGEUR_B}" y2="${hor}" stroke="#5cf2ff" stroke-width="3" filter="url(#neon)"/>
+      ${txt(560, H * 0.36, dateLongue().toUpperCase(), { t: 58 * s, g: 900, a: 'middle', it: true, c: '#5cf2ff', ls: 3, f: 'neon' })}
+      ${txt(560, H * 0.36 + 48 * s, 'BRIO · 1986', { t: 26 * s, g: 800, a: 'middle', it: true, c: '#ff5fdc', ls: 10, f: 'neon' })}`;
+  }
+
+  // ---------- Saisons : paysage aux couleurs de la saison du jour ----------
+  /** Nombre de jours avant la prochaine saison, et son nom */
+  function prochaineSaison() {
+    const auj = saisonDuJour();
+    const d = new Date();
+    for (let i = 1; i < 200; i++) {
+      d.setDate(d.getDate() + 1);
+      const k = saisonDuJour(d);
+      if (k !== auj) return { jours: i, nom: SAISONS[k].nom, icone: SAISONS[k].icone };
+    }
+    return null;
+  }
+
+  function banniereSaison(H) {
+    const s = Math.max(0.72, Math.min(1.35, H / 330));
+    const cle = saisonDuJour();
+    const t = SAISONS[cle];
+    const rnd = aleaStable(cle.length * 97 + 13);
+    const cars = (t.particules && t.particules.car) || [t.icone];
+    let deco = '';
+    for (let i = 0; i < 26; i++) {
+      deco += txt(rnd() * LARGEUR_B, rnd() * H * 0.9 + 20, cars[i % cars.length],
+        { t: (rnd() * 26 + 18) * s, op: (rnd() * 0.4 + 0.35).toFixed(2), c: (t.particules && t.particules.couleur) || '#fff' });
+    }
+    const suite = prochaineSaison();
+    return `
+      <defs><linearGradient id="gsa" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="${t.fonce}"/><stop offset="1" stop-color="${t.primaire}"/></linearGradient></defs>
+      <rect width="${LARGEUR_B}" height="${H}" fill="url(#gsa)"/>
+      <path d="M0 ${H * 0.78} Q 400 ${H * 0.58} 820 ${H * 0.76} T 1600 ${H * 0.66} V ${H} H 0 Z" fill="${t.surface2}" opacity=".35"/>
+      <path d="M0 ${H * 0.9} Q 520 ${H * 0.72} 1000 ${H * 0.88} T 1600 ${H * 0.82} V ${H} H 0 Z" fill="${t.bg}" opacity=".55"/>
+      ${deco}
+      ${txt(800, H * 0.45, `${t.icone} ${t.nom}`, { t: 64 * s, g: 800, a: 'middle', c: t.surFonce, police: t.policeTitre })}
+      ${txt(800, H * 0.45 + 44 * s, dateLongue(), { t: 26 * s, g: 600, a: 'middle', c: t.surFonce, op: 0.9 })}
+      ${suite ? txt(800, H * 0.45 + 82 * s, `${suite.icone} ${suite.nom} dans ${suite.jours} jour${suite.jours > 1 ? 's' : ''}`,
+        { t: 20 * s, g: 600, a: 'middle', c: t.surFonce, op: 0.75 }) : ''}`;
+  }
+
+  // ---------- Météo : ciel du moment et prévisions ----------
+  const CIELS = {
+    soleil: ['#2f86d6', '#8cc8f2'], nuageux: ['#5d6b7c', '#a9b4c1'], pluie: ['#2c3a4b', '#5b6b7d'], neige: ['#6f8296', '#c9d5e1'],
+    orage: ['#1b1f2e', '#46405e'], brouillard: ['#8d96a0', '#c7ccd2'], nuit: ['#070c22', '#1d2b55'],
+  };
+  function nuage(x, y, k, op) {
+    return `<g fill="#fff" opacity="${op}"><ellipse cx="${x}" cy="${y}" rx="${90 * k}" ry="${34 * k}"/><circle cx="${x - 30 * k}" cy="${y - 22 * k}" r="${34 * k}"/>
+      <circle cx="${x + 22 * k}" cy="${y - 30 * k}" r="${42 * k}"/></g>`;
+  }
+  function banniereMeteo(H, m) {
+    const s = Math.max(0.72, Math.min(1.35, H / 330));
+    const cy = H / 2;
+    const amb = m ? ambianceMeteo(m.actuel.code, m.actuel.jour) : 'nuageux';
+    const [c1, c2] = CIELS[amb] || CIELS.nuageux;
+    const rnd = aleaStable(4242);
+    let deco = '';
+    if (amb === 'soleil') deco = `<circle cx="1480" cy="${H * 0.2}" r="${H * 0.5}" fill="#ffd34d" opacity=".25"/><circle cx="1480" cy="${H * 0.2}" r="${H * 0.22}" fill="#ffd34d"/>`;
+    if (amb === 'nuit') {
+      for (let i = 0; i < 90; i++) deco += `<circle cx="${rnd() * LARGEUR_B}" cy="${rnd() * H}" r="${rnd() * 1.6 + 0.4}" fill="#fff" opacity="${rnd() * 0.7 + 0.2}"/>`;
+      deco += `<circle cx="1460" cy="${H * 0.3}" r="${H * 0.16}" fill="#f2e6b8"/><circle cx="${1460 + H * 0.07}" cy="${H * 0.26}" r="${H * 0.15}" fill="${c1}"/>`;
+    }
+    if (['nuageux', 'pluie', 'neige', 'orage'].includes(amb)) {
+      deco += nuage(1380, H * 0.3, 1.3 * s, 0.35) + nuage(260, H * 0.22, 1 * s, 0.25) + nuage(980, H * 0.18, 0.8 * s, 0.2);
+    }
+    if (amb === 'pluie' || amb === 'orage') {
+      for (let i = 0; i < 120; i++) { const x = rnd() * LARGEUR_B; const y = rnd() * H; deco += `<line x1="${x}" y1="${y}" x2="${x - 8}" y2="${y + 26}" stroke="#bcd3ea" stroke-width="2" opacity=".35"/>`; }
+    }
+    if (amb === 'orage') deco += `<polygon points="1300,${H * 0.35} 1270,${H * 0.62} 1300,${H * 0.6} 1280,${H * 0.92} 1340,${H * 0.52} 1308,${H * 0.54} 1330,${H * 0.35}" fill="#ffe14d" opacity=".85"/>`;
+    if (amb === 'neige') for (let i = 0; i < 110; i++) deco += `<circle cx="${rnd() * LARGEUR_B}" cy="${rnd() * H}" r="${rnd() * 3 + 1.5}" fill="#fff" opacity="${rnd() * 0.5 + 0.4}"/>`;
+    if (amb === 'brouillard') for (let i = 0; i < 6; i++) deco += `<rect x="-50" y="${H * (0.15 + i * 0.14)}" width="1700" height="${H * 0.07}" rx="20" fill="#fff" opacity=".18"/>`;
+    const fond = `
+      <defs><linearGradient id="gme" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${c1}"/><stop offset="1" stop-color="${c2}"/></linearGradient>
+        <filter id="ombre"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity=".45"/></filter></defs>
+      <rect width="${LARGEUR_B}" height="${H}" fill="url(#gme)"/>${deco}`;
+    if (!m) return fond + txt(800, cy + 10, 'Chargement de la météo…', { t: 30 * s, g: 700, a: 'middle' });
+    const a = m.actuel;
+    const auj = m.jours[0] || {};
+    let heures = '';
+    m.heures.slice(0, 6).forEach((h, i) => {
+      const x = 1030 + i * 82;
+      heures += `
+        ${txt(x, cy - 40 * s, `${h.heure} h`, { t: 17 * s, g: 600, a: 'middle', op: 0.9, f: 'ombre' })}
+        ${txt(x, cy + 6 * s, iconeMeteo(h.code, h.jour), { t: 30 * s, a: 'middle' })}
+        ${txt(x, cy + 42 * s, deg(h.temp), { t: 22 * s, g: 800, a: 'middle', f: 'ombre' })}
+        ${h.pluie ? txt(x, cy + 66 * s, `💧${h.pluie} %`, { t: 13 * s, a: 'middle', op: 0.85 }) : ''}`;
+    });
+    return fond + `
+      ${txt(470, cy - 92 * s, `MÉTÉO · ${m.ville.toUpperCase()}`, { t: 20 * s, g: 800, ls: 2, op: 0.9, f: 'ombre' })}
+      ${txt(470, cy + 12 * s, iconeMeteo(a.code, a.jour), { t: 88 * s })}
+      ${txt(470 + 120 * s, cy + 14 * s, deg(a.temp), { t: 104 * s, g: 800, f: 'ombre' })}
+      ${txt(470, cy + 54 * s, `${DESC_METEO[a.code] || ''} · ressenti ${deg(a.ressenti)}`, { t: 21 * s, g: 600, f: 'ombre' })}
+      ${txt(470, cy + 80 * s, `Max ${deg(auj.max)} · Min ${deg(auj.min)} · Vent ${Math.round(a.vent)} km/h`, { t: 17 * s, op: 0.9, f: 'ombre' })}
+      <line x1="970" y1="${cy - 70 * s}" x2="970" y2="${cy + 70 * s}" stroke="#fff" stroke-width="2" opacity=".35"/>
+      ${heures}`;
+  }
+
+  // ---------- Festival : le logo et tes matchs ----------
+  function banniereFestival(H) {
+    const s = Math.max(0.72, Math.min(1.35, H / 330));
+    const rnd = aleaStable(52);
+    let etoiles = '';
+    for (let i = 0; i < 80; i++) etoiles += `<circle cx="${rnd() * LARGEUR_B}" cy="${rnd() * H}" r="${rnd() * 1.5 + 0.3}" fill="#fff" opacity="${rnd() * 0.6 + 0.15}"/>`;
+    const taille = H * 0.96;
+    const info = PARTAGE_FESTIVAL.mesMatchs ? PARTAGE_FESTIVAL.mesMatchs() : { bac: null, matchs: [] };
+    let liste = '';
+    if (!info.bac) {
+      liste = txt(440, H * 0.5 + 10 * s, 'Clique sur « Festival » en bas à droite pour choisir ton bac.', { t: 20 * s, c: '#ece9f2', op: 0.85 });
+    } else {
+      liste = txt(440, H * 0.5 - 8 * s, `TES MATCHS · ${info.bac}`, { t: 18 * s, g: 800, ls: 2, c: '#b98aef' });
+      info.matchs.slice(0, 3).forEach((x, i) => {
+        liste += txt(440, H * 0.5 + (24 + i * 30) * s, `${x.jour} · ${x.heure} · ${x.icone} ${x.activite} · ${x.match}${x.etape ? ` (${x.etape})` : ''}`,
+          { t: 19 * s, g: 600, c: '#ece9f2' });
+      });
+      if (!info.matchs.length) liste += txt(440, H * 0.5 + 24 * s, 'Aucun match prévu pour ton bac.', { t: 19 * s, c: '#ece9f2', op: 0.8 });
+    }
+    return `
+      <rect width="${LARGEUR_B}" height="${H}" fill="#03060f"/>${etoiles}
+      <rect x="0" y="${H - 5}" width="${LARGEUR_B}" height="5" fill="#f2c14e"/>
+      <image href="${IMAGE_FESTIVAL}" x="${1290 - taille / 2}" y="${(H - taille) / 2}" width="${taille}" height="${taille}" preserveAspectRatio="xMidYMid meet"/>
+      ${txt(440, H * 0.5 - 96 * s, '52e FESTIVAL', { t: 22 * s, g: 800, ls: 6, c: '#b98aef' })}
+      ${txt(440, H * 0.5 - 50 * s, 'Sciences et Génie', { t: 46 * s, g: 800, c: '#f2c14e', police: '"Trebuchet MS", "Segoe UI", Arial, sans-serif' })}
+      ${liste}`;
+  }
+
+  /** Le SVG complet de la bannière pour le thème actuel (null = garder la photo de Brio) */
+  function svgBanniere(H) {
+    let corps = null;
+    if (choix === 'ch') corps = banniereCH(H, matchBanniere);
+    else if (choix === 'synthwave') corps = banniereSynthwave(H);
+    else if (choix === 'saisons') corps = banniereSaison(H);
+    else if (choix === 'meteo') corps = banniereMeteo(H, meteoConnue() ? meteoMemoire : null);
+    else if (choix === 'festival') corps = banniereFestival(H);
+    if (corps == null) return null;
+    return `<svg xmlns="${NS_SVG}" viewBox="0 0 ${LARGEUR_B} ${H}" width="${LARGEUR_B}" height="${H}" preserveAspectRatio="xMidYMid slice">${corps}</svg>`;
+  }
+
+  // ---------- Trouver la bannière de Brio et la remplacer ----------
+  /** La grande image large en haut de la page : une <img> ou un élément avec une image de fond */
+  function trouverBanniere() {
+    const deja = document.querySelector('[data-lbt-banniere]');
+    if (deja && deja.isConnected) return deja;
+    let meilleur = null;
+    let aire = 0;
+    const essayer = (el) => {
+      if (el === document.documentElement || el === document.body || el.closest(IGNORER_B)) return;
+      const r = el.getBoundingClientRect();
+      if (r.width < 500 || r.height < 100 || r.width / r.height < 2.2 || r.top + window.scrollY > 900) return;
+      if (r.width * r.height > aire) { aire = r.width * r.height; meilleur = el; }
+    };
+    document.querySelectorAll('img').forEach(essayer);
+    document.querySelectorAll('[style*="background"], [class*="banniere"], [class*="image"], [class*="entete"], [class*="hero"], [class*="couverture"], header, header *')
+      .forEach((el) => { if (/url\(/.test(getComputedStyle(el).backgroundImage)) essayer(el); });
+    return meilleur;
+  }
+
+  function restaurerBanniere(el) {
+    if (!el || !el.hasAttribute('data-lbt-banniere')) return;
+    if (el.tagName === 'IMG') {
+      if (el.dataset.lbtSrc != null) el.setAttribute('src', el.dataset.lbtSrc);
+      if (el.dataset.lbtSrcset) el.setAttribute('srcset', el.dataset.lbtSrcset);
+      if (el.parentElement && el.parentElement.tagName === 'PICTURE') {
+        el.parentElement.querySelectorAll('source[data-lbt-srcset]').forEach((so) => { so.setAttribute('srcset', so.dataset.lbtSrcset); so.removeAttribute('data-lbt-srcset'); });
+      }
+      ['objectFit', 'objectPosition'].forEach((p) => { el.style[p] = ''; });
+    } else {
+      ['background-image', 'background-size', 'background-position', 'background-repeat'].forEach((p) => el.style.removeProperty(p));
+      if (el.dataset.lbtFond) el.style.backgroundImage = el.dataset.lbtFond;
+    }
+    ['lbtSrc', 'lbtSrcset', 'lbtFond', 'lbtCle'].forEach((k) => delete el.dataset[k]);
+    el.removeAttribute('data-lbt-banniere');
+    delete el.lbtUrl;
+  }
+
+  let matchBanniere = null;
+  let derniereVerifB = 0;
+  let verifPrevueB = null;
+  function assurerBanniere(forcer) {
+    // Pas plus d'une vérification toutes les 400 ms (Brio change souvent la page)
+    const maintenant = Date.now();
+    if (!forcer && maintenant - derniereVerifB < 400) {
+      if (!verifPrevueB) verifPrevueB = setTimeout(() => { verifPrevueB = null; assurerBanniere(); }, 450);
+      return;
+    }
+    derniereVerifB = maintenant;
+    const el = trouverBanniere();
+    if (!el) return;
+    if (choix === 'ch' && !matchBanniere) {
+      matchBanniere = lireGM(CLE_MATCH, null);
+      donneesMatch().then((d) => { if (d) { matchBanniere = d; assurerBanniere(true); } });
+    }
+    const r = el.getBoundingClientRect();
+    const H = Math.round(Math.max(160, Math.min(900, LARGEUR_B * r.height / Math.max(1, r.width))));
+    const svg = svgBanniere(H);
+    if (!svg) { restaurerBanniere(el); return; }
+    const cle = `${choix}|${H}|${svg.length}|${svg.slice(-400)}`;
+    const enPlace = el.tagName === 'IMG' ? el.getAttribute('src') === el.lbtUrl : (el.style.backgroundImage || '').includes('data:image/svg');
+    if (enPlace && el.dataset.lbtCle === cle) return;
+    const url = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+    if (el.tagName === 'IMG') {
+      if (!el.hasAttribute('data-lbt-banniere') || !enPlace) {
+        el.dataset.lbtSrc = el.getAttribute('src') || '';
+        if (el.getAttribute('srcset')) el.dataset.lbtSrcset = el.getAttribute('srcset');
+      }
+      el.removeAttribute('srcset');
+      if (el.parentElement && el.parentElement.tagName === 'PICTURE') {
+        el.parentElement.querySelectorAll('source[srcset]').forEach((so) => { so.dataset.lbtSrcset = so.getAttribute('srcset'); so.removeAttribute('srcset'); });
+      }
+      el.style.objectFit = 'cover';
+      el.style.objectPosition = 'center';
+      el.lbtUrl = url;
+      el.setAttribute('src', url);
+    } else {
+      if (!el.hasAttribute('data-lbt-banniere') || !enPlace) el.dataset.lbtFond = el.style.backgroundImage || '';
+      el.style.setProperty('background-image', `url("${url}")`, 'important');
+      el.style.setProperty('background-size', 'cover', 'important');
+      el.style.setProperty('background-position', 'center', 'important');
+      el.style.setProperty('background-repeat', 'no-repeat', 'important');
+    }
+    el.setAttribute('data-lbt-banniere', choix);
+    el.dataset.lbtCle = cle;
+  }
+
+  // La bannière suit les changements de taille de la fenêtre
+  window.addEventListener('resize', () => assurerBanniere());
 
   // ================================================================
   // 7. DÉMARRAGE
   // ================================================================
   function demarrer() {
     observateur.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
+    // Une image qui finit de se charger peut être la bannière : on revérifie
+    document.addEventListener('load', (e) => { if (choix !== 'origine' && e.target && e.target.tagName === 'IMG') assurerBanniere(); }, true);
     installerMenu();
     appliquer(choix);
   }
@@ -2090,6 +2465,12 @@
   };
 
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+
+  // Pour la bannière du thème Festival : ton bac et tes matchs
+  PARTAGE_FESTIVAL.mesMatchs = () => {
+    const bac = lireBac();
+    return { bac, matchs: bac ? MATCHS.filter((m) => m.equipes.includes(bac)) : [] };
+  };
 
   const CSS = `
     :host { all: initial; }
