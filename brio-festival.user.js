@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Brio Festival : thèmes, échéances, notes et Festival
 // @namespace    lecteur-brio
-// @version      1.1.0
+// @version      1.2.0
 // @description  Tout-en-un pour Brio : thèmes (Festival, Canadien, synthwave, saisons, météo), horaire du Festival de Sciences et Génie selon ton bac, panneau des échéances et du calendrier, note cumulée et cote de chaque cours, note à viser sur la page Résultats (avec le seuil des examens). Lecture seule, rien n'est modifié sur Brio.
 // @match        https://www.brioeducation.ca/*
 // @homepageURL  https://github.com/Quentin-rib/Best_Brio
@@ -1446,7 +1446,7 @@
       .surtitre { font-family: var(--f-titre); font-size: 12px; font-weight: 900;
         text-transform: uppercase; letter-spacing: .02em; color: var(--c-discret); }
   
-      .declencheur { position: fixed; right: 24px; bottom: 24px; z-index: 2147483000; display: flex; align-items: center;
+      .declencheur { position: fixed; right: 24px; bottom: 84px; z-index: 2147483000; display: flex; align-items: center;
         gap: 10px; border: 0; border-radius: 4px; padding: 12px 18px; background: var(--c-bouton); color: var(--c-sur-fonce); cursor: pointer;
         font: 550 16px var(--f-texte); box-shadow: 0 2px 4px rgba(0,0,0,.25); }
       .declencheur:hover { background: var(--c-bouton-survol); }
@@ -2104,7 +2104,7 @@
       font-family: var(--f-texte); font-size: 16px; color: var(--c-texte); }
     .titre { font-family: var(--f-titre); font-weight: 700; color: var(--c-titre); }
     .surtitre { font-family: var(--f-titre); font-size: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: .02em; color: var(--c-discret); }
-    .declencheur { position: fixed; right: 24px; bottom: 84px; z-index: 2147483000; display: flex; align-items: center; gap: 8px;
+    .declencheur { position: fixed; right: 24px; bottom: 24px; z-index: 2147483000; display: flex; align-items: center; gap: 8px;
       border: 0; border-left: 4px solid #f2c14e; border-radius: 4px; padding: 12px 18px; background: linear-gradient(135deg, #5b2a91, #2a1747);
       color: #fff; cursor: pointer;
       font: 550 16px var(--f-texte); box-shadow: 0 2px 4px rgba(0,0,0,.25); }
