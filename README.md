@@ -21,7 +21,9 @@ Ajoute l'extension à ton navigateur :
 - Chrome / Brave : [Chrome Web Store](https://chromewebstore.google.com/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo)
 - Edge : [Modules Edge](https://microsoftedge.microsoft.com/addons/detail/tampermonkey/iikmkjmpaadaobahmlepeloendndfphd)
 - Firefox : [Firefox Add-ons](https://addons.mozilla.org/fr/firefox/addon/tampermonkey/)
-- Safari et autres : [tampermonkey.net](https://www.tampermonkey.net/)
+- Safari (Mac, iPhone, iPad) : **payant**. Tampermonkey pour Safari s'achète sur l'App Store (quelques dollars). Sur Mac, Chrome, Edge et Firefox sont des options gratuites.
+- Android : Chrome ne prend pas les extensions. Utilise Firefox pour Android avec le module Tampermonkey (gratuit).
+- Autres navigateurs : [tampermonkey.net](https://www.tampermonkey.net/)
 
 **Chrome, Edge, Brave :** il faut aussi autoriser les scripts utilisateur. Clic droit sur l'icône Tampermonkey → *Gérer l'extension*, puis active **« Autoriser les scripts utilisateur »** (ou le *Mode développeur* sur les anciennes versions).
 
