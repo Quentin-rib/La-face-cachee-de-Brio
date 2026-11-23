@@ -1,6 +1,6 @@
-# New_Brio pour Tampermonkey
+# La face cachée de Brio pour Tampermonkey
 
-Un script, **« New_Brio »**, qui améliore l'affichage de [Brio](https://www.brioeducation.ca/) :
+Un script, **« La face cachée de Brio »**, qui améliore l'affichage de [Brio](https://www.brioeducation.ca/) :
 
 - **Festival de Sciences et Génie :** un thème avec le logo du Festival en fond d'écran, et un bouton « Festival » avec l'horaire des activités (WikiWars, GeoGuessr, Génie en herbe, Improvisation). Il met en évidence les matchs de ton bac.
 - **Autres thèmes :** soir de match du Canadien, synthwave, saisons automatiques, météo en direct (bouton 🎨 en bas à gauche). La grande bannière en haut des pages change avec le thème : score et prochains matchs du CH, météo du moment, saison du jour…
@@ -29,11 +29,11 @@ Ajoute l'extension à ton navigateur :
 
 Clique sur ce lien, puis sur **Installer** dans la page de Tampermonkey qui s'ouvre :
 
-👉 [Installer « New_Brio »](https://raw.githubusercontent.com/Quentin-rib/Best_Brio/main/brio-festival.user.js)
+👉 [Installer « La face cachée de Brio »](https://raw.githubusercontent.com/Quentin-rib/Best_Brio/main/brio-festival.user.js)
 
 Au premier clic sur le bouton « Festival », choisis ton bac. Tu pourras le changer plus tard avec « Changer de bac ».
 
-Si tu avais déjà d'anciens scripts Brio (par exemple « Brio Festival »), supprime-les dans le tableau de bord de Tampermonkey, sinon tout s'affichera en double.
+Si tu avais déjà d'anciens scripts Brio (par exemple « Brio Festival » ou « New_Brio »), supprime-les dans le tableau de bord de Tampermonkey, sinon tout s'affichera en double.
 
 ### 3. C'est prêt
 

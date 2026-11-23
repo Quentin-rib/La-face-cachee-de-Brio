@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         New_Brio
+// @name         La face cachée de Brio
 // @namespace    lecteur-brio
-// @version      1.4.5
+// @version      1.4.6
 // @description  Tout-en-un pour Brio : thèmes (Festival, Canadien, synthwave, saisons, météo), horaire du Festival de Sciences et Génie selon ton bac, panneau des échéances et du calendrier, note cumulée et cote de chaque cours, note à viser sur la page Résultats (avec le seuil des examens). Lecture seule, rien n'est modifié sur Brio.
 // @match        https://www.brioeducation.ca/*
 // @homepageURL  https://github.com/Quentin-rib/Best_Brio
@@ -2070,7 +2070,7 @@ const PARTAGE_FESTIVAL = { mesMatchs: null };
 
     function fichierIcs(evs, rappel) {
       const maintenant = icsDate(new Date());
-      const lignes = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//New_Brio//Echeances//FR", "CALSCALE:GREGORIAN",
+      const lignes = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//La face cachee de Brio//Echeances//FR", "CALSCALE:GREGORIAN",
         "METHOD:PUBLISH", "X-WR-CALNAME:Brio - Échéances", `X-WR-TIMEZONE:${FUSEAU}`];
       for (const e of evs) {
         const fin = e.date;
