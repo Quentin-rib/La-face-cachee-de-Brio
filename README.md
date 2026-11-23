@@ -1,8 +1,9 @@
-# Script Brio pour Tampermonkey
+# Brio Festival pour Tampermonkey
 
-Un seul script, **« Brio : thèmes, échéances et notes »**, qui améliore l'affichage de [Brio](https://www.brioeducation.ca/) :
+Un script, **« Brio Festival : thèmes, échéances, notes et Festival »**, qui améliore l'affichage de [Brio](https://www.brioeducation.ca/) :
 
-- **Thèmes :** soir de match du Canadien, synthwave, saisons automatiques, météo en direct (bouton 🎨 en bas à gauche).
+- **Festival de Sciences et Génie :** un thème avec le logo du Festival en fond d'écran, et un bouton « Festival » avec l'horaire des activités (WikiWars, GeoGuessr, Génie en herbe, Improvisation). Il met en évidence les matchs de ton bac.
+- **Autres thèmes :** soir de match du Canadien, synthwave, saisons automatiques, météo en direct (bouton 🎨 en bas à gauche).
 - **Échéances et calendrier :** un panneau avec les remises des 30 prochains jours (et un bouton pour voir les 30 suivants), le calendrier de tous tes cours et des liens directs vers les évaluations.
 - **Notes :** ta note cumulée et ta cote à côté de chaque cours dans la liste « Sites de cours ».
 - **Note à viser :** sur la page Résultats d'un cours, le pourcentage à obtenir sur chaque évaluation restante pour monter d'une cote, en tenant compte du seuil de réussite des examens quand le cours en a un.
@@ -11,27 +12,28 @@ Tout se passe dans ton navigateur : rien n'est modifié sur Brio et aucune donn�
 
 ## Installation (2 minutes)
 
+Un guide détaillé pour Chrome et Edge est aussi disponible en PDF : [guide-installation-chrome-edge.pdf](guide-installation-chrome-edge.pdf).
+
 ### 1. Installer Tampermonkey
 
 Ajoute l'extension à ton navigateur :
 
-- Chrome / Brave / Edge : [Chrome Web Store](https://chromewebstore.google.com/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo)
+- Chrome / Brave : [Chrome Web Store](https://chromewebstore.google.com/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo)
+- Edge : [Modules Edge](https://microsoftedge.microsoft.com/addons/detail/tampermonkey/iikmkjmpaadaobahmlepeloendndfphd)
 - Firefox : [Firefox Add-ons](https://addons.mozilla.org/fr/firefox/addon/tampermonkey/)
 - Safari et autres : [tampermonkey.net](https://www.tampermonkey.net/)
 
-**Chrome, Edge, Brave :** il faut aussi autoriser les scripts utilisateur. Clic droit sur l'icône Tampermonkey → *Gérer l'extension*, puis active **« Autoriser les scripts utilisateur »** (ou le *Mode développeur* sur les anciennes versions de Chrome).
+**Chrome, Edge, Brave :** il faut aussi autoriser les scripts utilisateur. Clic droit sur l'icône Tampermonkey → *Gérer l'extension*, puis active **« Autoriser les scripts utilisateur »** (ou le *Mode développeur* sur les anciennes versions).
 
 ### 2. Installer le script
 
 Clique sur ce lien, puis sur **Installer** dans la page de Tampermonkey qui s'ouvre :
 
-👉 [Installer « Brio : thèmes, échéances et notes »](https://raw.githubusercontent.com/Quentin-rib/Best_Brio/main/brio.user.js)
+👉 [Installer « Brio Festival »](https://raw.githubusercontent.com/Quentin-rib/Best_Brio/main/brio-festival.user.js)
 
-Si tu avais déjà les anciens scripts « Brio : thèmes » et « Brio : échéances et calendrier », supprime-les dans le tableau de bord de Tampermonkey, sinon tout s'affichera en double.
+Au premier clic sur le bouton « Festival », choisis ton bac. Tu pourras le changer plus tard avec « Changer de bac ».
 
-### Variante « Brio Festival »
-
-👉 [Installer « Brio Festival »](https://raw.githubusercontent.com/Quentin-rib/Best_Brio/main/brio-festival.user.js) : le même script, plus le thème du Festival de Sciences et Génie et un bouton « Festival » avec l'horaire des activités selon ton bac. Installe l'une **ou** l'autre version, pas les deux.
+Si tu avais déjà d'anciens scripts Brio, supprime-les dans le tableau de bord de Tampermonkey, sinon tout s'affichera en double.
 
 ### 3. C'est prêt
 
@@ -43,7 +45,7 @@ Elles sont automatiques : Tampermonkey vérifie régulièrement s'il existe une 
 
 ## Problèmes fréquents
 
-- **Rien ne change sur Brio :** vérifie que Tampermonkey est activé et que le script est coché dans son tableau de bord, puis recharge la page. Sur Chrome, vérifie l'option « Autoriser les scripts utilisateur ».
+- **Rien ne change sur Brio :** vérifie que Tampermonkey est activé et que le script est coché dans son tableau de bord, puis recharge la page. Sur Chrome et Edge, vérifie l'option « Autoriser les scripts utilisateur ».
 - **Le panneau des échéances dit que la session est expirée :** déconnecte-toi puis reconnecte-toi à Brio.
 - **Tampermonkey demande une autorisation d'accès à un site :** clique sur *Toujours autoriser*. Les seuls sites contactés sont les serveurs de Brio, l'API publique de la LNH (thème Canadien) et Open-Meteo (thème Météo).
 
