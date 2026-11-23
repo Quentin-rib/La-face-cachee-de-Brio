@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Brio Festival : thèmes, échéances, notes et Festival
 // @namespace    lecteur-brio
-// @version      1.3.0
+// @version      1.4.0
 // @description  Tout-en-un pour Brio : thèmes (Festival, Canadien, synthwave, saisons, météo), horaire du Festival de Sciences et Génie selon ton bac, panneau des échéances et du calendrier, note cumulée et cote de chaque cours, note à viser sur la page Résultats (avec le seuil des examens). Lecture seule, rien n'est modifié sur Brio.
 // @match        https://www.brioeducation.ca/*
 // @homepageURL  https://github.com/Quentin-rib/Best_Brio
@@ -1850,6 +1850,10 @@ const PARTAGE_FESTIVAL = { mesMatchs: null };
         font: 550 18px var(--f-texte); text-transform: uppercase; }
       .onglet:hover { background: rgba(0,0,0,.2); }
       .onglet.actif { background: rgba(0,0,0,.35); }
+      .btn-agenda { margin-left: auto; align-self: center; color: var(--c-sur-fonce); border: 1px solid currentColor;
+        border-radius: 4px; padding: 6px 12px; }
+      .btn-agenda:hover { background: rgba(0,0,0,.2); text-decoration: none; }
+      .btn-agenda:not([hidden]) + .maj { margin-left: 12px; }
       .maj { margin-left: auto; align-self: center; color: var(--c-sur-fonce); opacity: .8; font-size: 14px; }
   
       .corps { flex: 1; overflow-y: auto; padding: 24px 32px 32px; }
@@ -1881,6 +1885,27 @@ const PARTAGE_FESTIVAL = { mesMatchs: null };
       .bouton2 { border: 1px solid var(--c-accent); background: var(--c-surface); color: var(--c-accent); border-radius: 4px; padding: 7px 14px;
         font: 550 16px var(--f-texte); cursor: pointer; }
       .bouton2:hover { background: var(--c-bouton); color: var(--c-sur-fonce); }
+      .export-intro, .export-note { color: var(--c-discret); margin: 4px 0 14px; line-height: 1.45; }
+      .export-note { margin-top: 18px; font-size: 14px; }
+      .export-options { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 22px; margin-bottom: 16px; }
+      .export-options label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+      .export-options select { font: inherit; padding: 4px 6px; border: 1px solid var(--c-bordure); border-radius: 4px;
+        background: var(--c-surface); color: var(--c-texte); }
+      .agendas { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+      .agenda { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 18px 10px; cursor: pointer;
+        border: 2px solid transparent; border-radius: 6px; background: var(--c-surface); color: var(--c-texte);
+        box-shadow: 0 1px 2px rgba(0,0,0,.25); font: 550 17px var(--f-texte); }
+      .agenda:hover:not([disabled]) { border-color: var(--c-accent); }
+      .agenda.choisi { border-color: var(--c-accent); box-shadow: 0 0 0 3px rgba(0,0,0,.08); }
+      .agenda[disabled] { opacity: .5; cursor: default; }
+      .agenda-icone { font-size: 30px; line-height: 1; }
+      .etapes { margin-top: 16px; padding: 18px 22px; }
+      .etapes h2 { font-size: 20px; margin-bottom: 8px; }
+      .etapes ol { margin: 0 0 12px 20px; padding: 0; line-height: 1.5; }
+      .etapes li { margin: 4px 0; }
+      .etapes .liens { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 6px; }
+      .etapes a.bouton2 { text-decoration: none; display: inline-block; }
+      @media (max-width: 700px) { .agendas { grid-template-columns: repeat(2, 1fr); } }
       .legende { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-bottom: 12px; font-size: 14px; color: var(--c-discret); }
       .legende span { display: inline-flex; align-items: center; gap: 6px; }
       .legende i, .point { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex: none; }
@@ -1998,6 +2023,132 @@ const PARTAGE_FESTIVAL = { mesMatchs: null };
       return html + boutons;
     }
   
+    // Export vers un agenda (Google, Apple, Samsung, Outlook) ------------
+    // Le script fabrique un fichier .ics (format standard des agendas) dans le navigateur ;
+    // chaque application l'importe à sa façon. Rien n'est envoyé ailleurs par le script.
+
+    const CLE_EXPORT = "brio-export-options";
+    const lireOptionsExport = () => {
+      try { return Object.assign({ passees: false, rappel: "P1D" }, (typeof GM_getValue === "function" && GM_getValue(CLE_EXPORT, null)) || {}); }
+      catch (e) { return { passees: false, rappel: "P1D" }; }
+    };
+    const ecrireOptionsExport = (o) => { try { if (typeof GM_setValue === "function") GM_setValue(CLE_EXPORT, o); } catch (e) { /* rien */ } };
+
+    const icsTexte = (t) => String(t).replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n");
+    const icsDate = (d) => d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+    /** Lignes de 75 octets au plus, comme le veut la norme (les suites commencent par une espace) */
+    function plier(ligne) {
+      const octets = new TextEncoder();
+      const morceaux = [];
+      let courant = "";
+      for (const car of ligne) {
+        if (octets.encode(courant + car).length > (morceaux.length ? 74 : 75)) { morceaux.push(courant); courant = ""; }
+        courant += car;
+      }
+      morceaux.push(courant);
+      return morceaux.join("\r\n ");
+    }
+
+    const NOMS_RAPPEL = { "": "Aucun rappel", PT2H: "2 heures avant", P1D: "1 jour avant", P2D: "2 jours avant", P7D: "1 semaine avant" };
+
+    function fichierIcs(evs, rappel) {
+      const maintenant = icsDate(new Date());
+      const lignes = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Brio Festival//Echeances//FR", "CALSCALE:GREGORIAN",
+        "METHOD:PUBLISH", "X-WR-CALNAME:Brio - Échéances", `X-WR-TIMEZONE:${FUSEAU}`];
+      for (const e of evs) {
+        const fin = e.date;
+        const debut = new Date(fin.getTime() - 30 * 60000); // un bloc de 30 minutes qui finit à l'heure de remise
+        const poids = e.poids === "formatif" ? "formatif" : e.poids !== null ? `${fmtNombre(e.poids)} %` : "";
+        const description = [
+          `À remettre le ${fmtJour(fin)} à ${fmtHeure(fin)}`,
+          `${e.cours.nom}${e.cours.code ? ` (${e.cours.code})` : ""}`,
+          [poids && `Pondération : ${poids}`, e.equipe ? "En équipe" : "Individuel"].filter(Boolean).join(" · "),
+          e.url,
+        ].join("\n");
+        const uid = `${e.cours.idSite}-${(e.url.split("/").pop() || "").replace(/[^\w-]/g, "")}-${fin.getTime()}@brio-festival`;
+        lignes.push("BEGIN:VEVENT", `UID:${uid}`, `DTSTAMP:${maintenant}`, `DTSTART:${icsDate(debut)}`, `DTEND:${icsDate(fin)}`,
+          `SUMMARY:${icsTexte(`${e.cours.court} · ${e.titre}`)}`, `DESCRIPTION:${icsTexte(description)}`, `URL:${e.url}`,
+          "TRANSP:TRANSPARENT", `CATEGORIES:${icsTexte(e.cours.court)}`);
+        if (rappel) lignes.push("BEGIN:VALARM", "ACTION:DISPLAY", `DESCRIPTION:${icsTexte(`Remise : ${e.titre}`)}`, `TRIGGER:-${rappel}`, "END:VALARM");
+        lignes.push("END:VEVENT");
+      }
+      lignes.push("END:VCALENDAR");
+      return lignes.map(plier).join("\r\n") + "\r\n";
+    }
+
+    function evenementsAExporter(cours, opts) {
+      const maintenant = new Date();
+      return evenements(cours).filter((e) => opts.passees || e.date >= maintenant);
+    }
+
+    const AGENDAS = {
+      google: { nom: "Google Agenda", icone: "🟦", etapes: [
+        "Le fichier <b>brio-echeances.ics</b> vient d'être téléchargé.",
+        "Ouvre l'importation de Google Agenda avec le bouton ci-dessous (connecte-toi au bon compte Google si besoin).",
+        "Clique sur <b>Sélectionner un fichier sur votre ordinateur</b> et choisis <b>brio-echeances.ics</b> (dans Téléchargements).",
+        "Choisis l'agenda où ajouter les remises, puis clique sur <b>Importer</b>.",
+        "Astuce : crée d'abord un agenda « Brio » (bouton + à côté de « Autres agendas »). Pour mettre à jour plus tard, tu pourras le supprimer et réimporter, sans doublons."],
+        lien: { texte: "Ouvrir l'importation de Google Agenda", url: "https://calendar.google.com/calendar/r/settings/export" } },
+      apple: { nom: "Apple Calendrier", icone: "🍎", etapes: [
+        "Le fichier <b>brio-echeances.ics</b> vient d'être téléchargé.",
+        "<b>Sur Mac :</b> double-clique sur le fichier (dans Téléchargements). Calendrier s'ouvre : choisis le calendrier (iCloud, par exemple), puis <b>OK</b>.",
+        "<b>Sur iPhone ou iPad (Safari) :</b> touche le fichier téléchargé, puis <b>Tout ajouter</b> et choisis le calendrier.",
+        "Avec un calendrier iCloud, les remises apparaissent sur tous tes appareils Apple."] },
+      samsung: { nom: "Samsung Calendrier", icone: "📱", etapes: [
+        "Le fichier <b>brio-echeances.ics</b> vient d'être téléchargé.",
+        "<b>Sur ton téléphone Samsung :</b> ouvre le fichier (notification de téléchargement, ou app <b>Mes fichiers</b> → Téléchargements).",
+        "Choisis <b>Calendrier Samsung</b>, puis le compte où enregistrer (Samsung ou Google) et touche <b>Enregistrer</b>.",
+        "<b>Depuis un ordinateur :</b> le plus simple est de choisir « Google Agenda » ici avec le compte Google de ton téléphone : Samsung Calendrier l'affichera tout seul."] },
+      outlook: { nom: "Outlook", icone: "📧", etapes: [
+        "Le fichier <b>brio-echeances.ics</b> vient d'être téléchargé.",
+        "<b>Outlook sur le Web</b> (compte personnel ou de l'université) : ouvre « Ajouter un calendrier » avec un des boutons ci-dessous, puis <b>Charger à partir d'un fichier</b>.",
+        "Choisis <b>brio-echeances.ics</b>, le calendrier où l'ajouter, puis <b>Importer</b>.",
+        "<b>Outlook sur Windows :</b> double-clique sur le fichier et choisis Outlook, puis <b>Importer</b> (ou Fichier → Ouvrir et exporter → Importer/Exporter)."],
+        lien: { texte: "Outlook.com (compte personnel)", url: "https://outlook.live.com/calendar/0/addcalendar" },
+        lien2: { texte: "Outlook de l'université (Microsoft 365)", url: "https://outlook.office.com/calendar/addcalendar" } },
+    };
+
+    function vueExport(cours, opts, choisi) {
+      const evs = evenementsAExporter(cours, opts);
+      const options = `
+        <div class="export-options">
+          <label><input type="checkbox" data-export-opt="passees"${opts.passees ? " checked" : ""}> Inclure les évaluations déjà passées</label>
+          <label>Rappel <select data-export-opt="rappel">${Object.entries(NOMS_RAPPEL).map(([v, n]) =>
+            `<option value="${v}"${v === opts.rappel ? " selected" : ""}>${n}</option>`).join("")}</select></label>
+          <span class="surtitre">${evs.length} évaluation${evs.length > 1 ? "s" : ""} à exporter</span>
+        </div>`;
+      const boutons = Object.entries(AGENDAS).map(([cle, a]) => `
+        <button class="agenda${cle === choisi ? " choisi" : ""}" data-agenda="${cle}"${evs.length ? "" : " disabled"}>
+          <span class="agenda-icone">${a.icone}</span><span>${a.nom}</span></button>`).join("");
+      let etapes = "";
+      if (choisi && AGENDAS[choisi]) {
+        const a = AGENDAS[choisi];
+        const liens = [a.lien, a.lien2].filter(Boolean)
+          .map((l) => `<a class="bouton2" href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.texte)} ↗</a>`).join(" ");
+        etapes = `<div class="carte etapes"><h2 class="titre-brio">${a.icone} ${a.nom}</h2>
+          <ol>${a.etapes.map((t) => `<li>${t}</li>`).join("")}</ol>
+          ${liens ? `<div class="liens">${liens}</div>` : ""}
+          <button class="outil" data-agenda="${choisi}">Retélécharger le fichier</button></div>`;
+      }
+      return `<div class="jour"><h2 class="titre-brio">Ajouter mes remises à mon agenda</h2></div>
+        <p class="export-intro">Choisis ton agenda : le script prépare un fichier avec tes remises, puis t'explique comment l'importer.</p>
+        ${options}
+        <div class="agendas">${boutons}</div>
+        ${etapes}
+        <p class="export-note">C'est une copie au moment de l'export : si une nouvelle évaluation est ajoutée dans Brio, refais l'export.</p>`;
+    }
+
+    function telechargerIcs(racine, contenu) {
+      const url = URL.createObjectURL(new Blob([contenu], { type: "text/calendar;charset=utf-8" }));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "brio-echeances.ics";
+      a.style.display = "none";
+      racine.appendChild(a);
+      a.click();
+      setTimeout(() => { a.remove(); URL.revokeObjectURL(url); }, 4000);
+    }
+
     // Note du cours dans la liste « Sites de cours » (à droite de la personne enseignante) --
   
     let promesseIdUtilisateur = null;
@@ -2305,6 +2456,7 @@ const PARTAGE_FESTIVAL = { mesMatchs: null };
             <div class="menu">
               <button class="onglet actif" data-vue="echeances">À venir</button>
               <button class="onglet" data-vue="calendrier">Calendrier</button>
+              <button class="outil btn-agenda" data-action="agenda" hidden>📅 Ajouter à mon agenda</button>
               <span class="maj"></span>
               <button class="outil" data-action="rafraichir" style="color:var(--c-sur-fonce)">Actualiser</button>
             </div>
@@ -2329,6 +2481,14 @@ const PARTAGE_FESTIVAL = { mesMatchs: null };
       }
       calSur(aujourdhui());
       let defilementPage = "";
+      const optionsExport = lireOptionsExport();
+      let agendaChoisi = null;
+      let exportOuvert = false;
+      const boutonAgenda = racine.querySelector(".btn-agenda");
+      function majBoutonAgenda() {
+        boutonAgenda.hidden = vue !== "calendrier";
+        boutonAgenda.textContent = exportOuvert ? "‹ Retour au calendrier" : "📅 Ajouter à mon agenda";
+      }
   
       async function afficher(forcer, garderDefilement) {
         if (forcer) corps.innerHTML = `<div class="info">Chargement…</div>`;
@@ -2341,7 +2501,8 @@ const PARTAGE_FESTIVAL = { mesMatchs: null };
           maj.textContent = `Mis à jour à ${fmtHeure(new Date(memoire.quand))}`;
           if (!fond.hidden) {
             const haut = corps.scrollTop;
-            corps.innerHTML = vue === "calendrier" ? vueCalendrier(cours, cal) : vueEcheances(cours, joursAVenir);
+            corps.innerHTML = vue === "calendrier" ? (exportOuvert ? vueExport(cours, optionsExport, agendaChoisi) : vueCalendrier(cours, cal))
+              : vueEcheances(cours, joursAVenir);
             corps.scrollTop = garderDefilement ? haut : 0;
           }
         } catch (e) {
@@ -2371,13 +2532,37 @@ const PARTAGE_FESTIVAL = { mesMatchs: null };
       racine.querySelectorAll(".onglet").forEach((o) => o.addEventListener("click", () => {
         racine.querySelectorAll(".onglet").forEach((x) => x.classList.toggle("actif", x === o));
         vue = o.dataset.vue;
+        exportOuvert = false;
+        majBoutonAgenda();
         afficher(false);
       }));
       racine.querySelector('[data-action="rafraichir"]').addEventListener("click", () => afficher(true));
+      boutonAgenda.addEventListener("click", () => {
+        exportOuvert = !exportOuvert;
+        if (!exportOuvert) agendaChoisi = null;
+        majBoutonAgenda();
+        afficher(false);
+      });
+      corps.addEventListener("change", (e) => {
+        const opt = e.target.closest("[data-export-opt]");
+        if (!opt) return;
+        optionsExport[opt.dataset.exportOpt] = opt.type === "checkbox" ? opt.checked : opt.value;
+        ecrireOptionsExport({ ...optionsExport });
+        afficher(false, true);
+      });
       corps.addEventListener("click", (e) => {
         const jour = e.target.closest("[data-jour]");
         const nav = e.target.closest("[data-cal]");
         const avenir = e.target.closest("[data-avenir]");
+        const agenda = e.target.closest("[data-agenda]");
+        if (agenda) {
+          agendaChoisi = agenda.dataset.agenda;
+          donnees(false).then((cours) => {
+            telechargerIcs(racine, fichierIcs(evenementsAExporter(cours, optionsExport), optionsExport.rappel));
+            afficher(false, true);
+          }).catch(() => afficher(false));
+          return;
+        }
         if (avenir) {
           joursAVenir = Number(avenir.dataset.avenir) > 0 ? joursAVenir + JOURS_A_VENIR : JOURS_A_VENIR;
         } else if (jour) {

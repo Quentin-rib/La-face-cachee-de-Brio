@@ -3,8 +3,8 @@
 Un script, **« Brio Festival : thèmes, échéances, notes et Festival »**, qui améliore l'affichage de [Brio](https://www.brioeducation.ca/) :
 
 - **Festival de Sciences et Génie :** un thème avec le logo du Festival en fond d'écran, et un bouton « Festival » avec l'horaire des activités (WikiWars, GeoGuessr, Génie en herbe, Improvisation). Il met en évidence les matchs de ton bac.
-- **Autres thèmes :** soir de match du Canadien, synthwave, saisons automatiques, météo en direct (bouton 🎨 en bas à gauche).
-- **Échéances et calendrier :** un panneau avec les remises des 30 prochains jours (et un bouton pour voir les 30 suivants), le calendrier de tous tes cours et des liens directs vers les évaluations.
+- **Autres thèmes :** soir de match du Canadien, synthwave, saisons automatiques, météo en direct (bouton 🎨 en bas à gauche). La grande bannière en haut des pages change avec le thème : score et prochains matchs du CH, météo du moment, saison du jour…
+- **Échéances et calendrier :** un panneau avec les remises des 30 prochains jours (et un bouton pour voir les 30 suivants), le calendrier de tous tes cours et des liens directs vers les évaluations. Le bouton « 📅 Ajouter à mon agenda » de l'onglet Calendrier exporte tes remises vers Google Agenda, Apple Calendrier, Samsung Calendrier ou Outlook.
 - **Notes :** ta note cumulée et ta cote à côté de chaque cours dans la liste « Sites de cours ».
 - **Note à viser :** sur la page Résultats d'un cours, le pourcentage à obtenir sur chaque évaluation restante pour monter d'une cote, en tenant compte du seuil de réussite des examens quand le cours en a un.
 
