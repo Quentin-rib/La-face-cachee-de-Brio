@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Brio Festival : thèmes, échéances, notes et Festival
 // @namespace    lecteur-brio
-// @version      1.4.1
+// @version      1.4.2
 // @description  Tout-en-un pour Brio : thèmes (Festival, Canadien, synthwave, saisons, météo), horaire du Festival de Sciences et Génie selon ton bac, panneau des échéances et du calendrier, note cumulée et cote de chaque cours, note à viser sur la page Résultats (avec le seuil des examens). Lecture seule, rien n'est modifié sur Brio.
 // @match        https://www.brioeducation.ca/*
 // @homepageURL  https://github.com/Quentin-rib/Best_Brio
@@ -169,6 +169,7 @@ const PARTAGE_FESTIVAL = { mesMatchs: null };
       fonce: '#07060c', primaire: '#5b2a91', accent: '#b98aef',
       texte: '#ece9f2', titre: '#f2c14e', discret: '#a8a1b8', surFonce: '#ffffff',
       bgElement: 'transparent', // les zones de fond laissent voir la nuit et la lune
+      bgPanneau: '#0e0c17',     // fond opaque des panneaux Échéances et Festival, pour bien lire
       policeTitre: '"Trebuchet MS", "Segoe UI", Arial, sans-serif',
       deco: `
         /* Le logo du Festival en fond d'écran, centré, sur un fond nuit du même noir que l'image */
@@ -590,6 +591,7 @@ const PARTAGE_FESTIVAL = { mesMatchs: null };
     const policeTitre = t.policeTitre ? `h1, h2, h3, h4 { font-family: ${t.policeTitre} !important; }` : '';
     return `
       html { ${vars} --lbt-bgElement: ${t.bgElement || t.bg};
+        --lbt-bgPanneau: ${t.bgPanneau || (t.bgElement && t.bgElement !== 'transparent' ? t.bgElement : t.bg)};
         ${t.police ? `--lbt-police: ${t.police};` : ''} ${t.policeTitre ? `--lbt-policeTitre: ${t.policeTitre};` : ''}
         background: var(--lbt-bg) !important;
         color-scheme: ${t.sombre ? 'dark' : 'light'}; }
@@ -1802,7 +1804,7 @@ const PARTAGE_FESTIVAL = { mesMatchs: null };
       * { box-sizing: border-box; margin: 0; }
       .racine {
         --c-surface: var(--lbt-surface, #fff);
-        --c-fond: var(--lbt-bgElement, #eef2f6);
+        --c-fond: var(--lbt-bgPanneau, var(--lbt-bgElement, #eef2f6)); /* fond opaque : le fond d'écran du thème ne transparaît pas */
         --c-fond2: var(--lbt-surface2, #dde3e9);
         --c-bordure: var(--lbt-bordure, #c9d2dc);
         --c-fonce: var(--lbt-fonce, #0f263e);
@@ -2674,7 +2676,7 @@ const PARTAGE_FESTIVAL = { mesMatchs: null };
     :host { all: initial; }
     * { box-sizing: border-box; margin: 0; }
     .racine {
-      --c-surface: var(--lbt-surface, #fff); --c-fond: var(--lbt-bgElement, #eef2f6); --c-fond2: var(--lbt-surface2, #dde3e9);
+      --c-surface: var(--lbt-surface, #fff); --c-fond: var(--lbt-bgPanneau, var(--lbt-bgElement, #eef2f6)); --c-fond2: var(--lbt-surface2, #dde3e9);
       --c-bordure: var(--lbt-bordure, #c9d2dc); --c-fonce: var(--lbt-fonce, #0f263e); --c-primaire: var(--lbt-primaire, #0755b1);
       --c-accent: var(--lbt-accent, #0e67d6); --c-texte: var(--lbt-texte, #000); --c-titre: var(--lbt-titre, #0f263e);
       --c-discret: var(--lbt-discret, #4e667e); --c-sur-fonce: var(--lbt-surFonce, #fff);
