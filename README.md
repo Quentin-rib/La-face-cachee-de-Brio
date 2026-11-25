@@ -51,8 +51,3 @@ Elles sont automatiques : Tampermonkey vérifie régulièrement s'il existe une 
 
 Le panneau des échéances est réglé pour l'Université Laval.
 
-## Pour le mainteneur : publier une nouvelle version
-
-1. Modifie le script, puis augmente son numéro `@version` dans l'en-tête (par exemple `1.1.0` → `1.2.0`). Sans ce changement, Tampermonkey ne verra pas la mise à jour.
-2. Remplace le fichier dans ce dépôt (bouton *Add file → Upload files* sur GitHub, ou un commit).
-3. Tampermonkey l'installera automatiquement chez tout le monde lors de sa prochaine vérification (environ une fois par jour).
